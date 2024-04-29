@@ -1,0 +1,712 @@
+---
+title: "Social Media Assigment"
+author: "Shubham Bhargava"
+date: "2024-04-25"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+<center>
+### [Social Media Data Analysis]{.underline }
+</center>
+#### Project Overview:
+<p>This project investigates the effects of social media use on our sleep, productivity, and mood. We're examining data to determine whether there's a relationship between users' emotional states or sleep quality and the amount of time they spend on social media sites like Instagram or Twitter. The objective is to determine whether various online behaviors are associated with better or worse feelings and what lessons can be drawn from that.</p>
+
+#### Data Collection
+<p>The variables included in this dataset</p>
+  - character
+  - Instagram
+  - LinkedIn
+  - SnapChat
+  - Twitter
+  - Whatsapp/Wechat
+  - youtube
+  - OTT
+  - Reddit
+  - Trouble_falling_asleep 
+  - Mood Productivity
+  - Tired waking up in morning
+  - How you felt the entire week?   
+  
+#### Dependent Variables
+    - Mood Productivity
+    - Trouble falling asleep
+
+#### Independent Variables
+    - Instagram
+    - LinkedIn
+    - SnapChat
+    - Twitter
+    - Whatsapp/Wechat
+    - youtube
+    - OTT
+    - Reddit
+
+#### Data Dictionary
+
+- <b>character:</b> Name or identifier of the individual/person.
+- <b>Instagram:</b> Activity level on Instagram (e.g., time spent, interactions).
+- <b>LinkedIn:</b> Activity level on LinkedIn.
+- <b>SnapChat:</b> Activity level on Snapchat.
+- <b>Twitter:</b> Activity level on Twitter.
+- <b>Whatsapp/Wechat:</b> Activity level on WhatsApp or WeChat.
+- <b>youtube:</b> Activity level on YouTube.
+- <b>OTT:</b> Activity level on Over-the-Top platforms (e.g., Netflix, Hulu).
+- <b>Reddit:</b> Activity level on Reddit.
+- <b>Trouble_falling_asleep:</b> A measurement that might be graded on a scale (0 for no trouble, 1 for some difficulties) to indicate whether the person has difficulty falling asleep.
+- <b>Mood Productivity:</b> The person's attitude, maybe assessed using a scale (1 being extremely negative and 5 being very positive)..
+- <b>Tired waking up in morning:</b> A measure indicating how tired the individual feels upon waking up in the morning, possibly rated on a scale (e.g., 0 for not tired, 1 for somewhat tired).
+- <b>How you felt the entire week?:</b>  An overall assessment of the person's mood for the full week, maybe graded on a scale (1 being extremely negative and 5 being very positive).
+
+#### Data Collection
+
+```{r}
+library(readxl)
+library(dplyr)
+library(FactoMineR)
+library(factoextra)
+library(ggplot2)
+library(ggfortify)
+library(MASS)
+library(ggrepel)
+library(stats)
+library(scatterplot3d)
+library(cluster)
+library(psych)
+library(car)
+library(GGally)
+library(ROCR)
+library(pROC)
+library(DataExplorer)
+```
+
+```{r}
+social_media <- read_excel("social_media_cleaned.xlsx")
+social_media_numeric <- select_if(social_media, is.numeric)
+
+print(social_media)
+```      
+
+```{r}
+head(social_media)
+summary(social_media)
+str(social_media)
+```
+
+<p>Data Cleaning</p>
+```{r}
+is.na(social_media)
+sum(is.na(social_media))
+```
+#### EDA
+<p>By automatically producing an extensive report, the create_report() function in R's DataExplorer package facilitates dataset exploration. It summarizes both categorical and numerical data, looks for missing values, spots anomalies, and looks at how variables relate to one another. Analysts and data scientists may swiftly identify significant patterns and trends with the aid of this interactive report, which explains the dataset's structure, distributions, and any issues with data quality.</p>
+
+```{r}
+describe(social_media)
+create_report(social_media)
+```
+[Click here to view Genetated EDA Report File](report.html)
+
+#### Correltion and Coefficient
+```{r}
+correlation_coefficient <- cor(social_media$Instagram, social_media$Trouble_falling_asleep)
+print(correlation_coefficient)
+
+plot(social_media$Instagram, social_media$Trouble_falling_asleep,
+     xlab = "Instagram", ylab = "Trouble Felling asleep",
+     main = "Scatter Plot of Instagram vs. Trouble Felling asleep")
+
+abline(lm(social_media$Trouble_falling_asleep ~ social_media$Instagram), col = "purple")
+
+plot(social_media$`Whatsapp/Wechat`, social_media$Trouble_falling_asleep,
+     xlab = "Whatsapp", ylab = "Trouble Felling asleep",
+     main = "Scatter Plot of Whatsapp vs. Trouble Felling asleep")
+
+abline(lm(social_media$Trouble_falling_asleep ~ social_media$`Whatsapp/Wechat`), col = "purple")
+
+print(paste("Correlation Coefficient between Instagram and Trouble Felling asleep Duration:", correlation_coefficient))
+
+```
+
+```{r}
+num_vars <- c("Instagram", "LinkedIn", "Whatsapp/Wechat", "Trouble_falling_asleep")
+
+for (var in num_vars) {
+  p <- ggplot(social_media, aes(x = social_media[[var]])) +
+    geom_histogram(fill = "green", color = "yellow") +
+    labs(title = paste("Histogram of", var), x = var, y = "Frequency") +
+    theme_minimal() +
+    theme(plot.title = element_text(hjust = 0.5))
+  print(p)
+}
+```
+<p><b>How addicted are users generally to social media apps, and is this related to the fact that many report having difficulty falling asleep?</b></p>
+```{r}
+social_media$Social_Media_Addiction <- rowSums(social_media[, c("Instagram", "LinkedIn" , "Twitter", "Whatsapp/Wechat" , "OTT", "Reddit")])
+
+summary(social_media$Social_Media_Addiction)
+summary(social_media$Trouble_falling_asleep)
+
+# Scatter plot of social media addiction vs. trouble falling asleep
+ggplot(social_media, aes(x = Social_Media_Addiction, y = Trouble_falling_asleep)) +
+  geom_point(color = "red") +
+  labs(title = "Social Media Addiction vs. Trouble Falling Asleep",
+       x = "Social Media Addiction",
+       y = "Trouble Falling Asleep")
+
+
+```
+<p><b>How much each user is addicted to a particular social networking app, and is there a connection between app addiction and reported difficulty falling asleep?</b></p>
+```{r}
+summary(social_media$Instagram)
+summary(social_media$`Whatsapp/Wechat`)
+
+ggplot(social_media, aes(x = Instagram, y = Trouble_falling_asleep)) +
+  geom_point(color = "blue") +
+  labs(title = "Instagram Activity vs. Trouble Falling Asleep",
+       x = "Instagram Activity",
+       y = "Trouble Falling Asleep")
+
+ggplot(social_media, aes(x = `Whatsapp/Wechat`, y = Trouble_falling_asleep)) +
+  geom_point(color = "green") +
+  labs(title = "Whatsapp Activity vs. Trouble Falling Asleep",
+       x = "Whatsapp Activity",
+       y = "Trouble Falling Asleep")
+
+```
+
+<p><b>Is there a pattern in the reported mood levels throughout the course of the week, and if so, how does this pattern connect to activity on social media?</b></p>
+```{r}
+n_rows <- nrow(social_media)
+day_of_week <- factor(1:n_rows)
+unique_days <- unique(day_of_week)
+
+ggplot(social_media, aes(x = day_of_week, y = `Mood Productivity`, group = 1)) +
+  geom_line(color = "green") +
+  labs(title = "Average Mood Levels Throughout the Week",
+       x = "Day of the Week",
+       y = "Average Mood")
+
+correlation_matrix <- cor(social_media[, c("Mood Productivity", "Instagram", "LinkedIn", "Twitter", "Whatsapp/Wechat", "youtube", "OTT", "Reddit")])
+
+# Print correlation matrix
+print(correlation_matrix)
+
+```
+### MVA models 
+
+#### PCA
+```{r}
+# Perform PCA
+pca_result <- prcomp(social_media_numeric, scale = TRUE)
+
+# Scree plot
+plot(pca_result$sdev^2, type = "b", xlab = "Principal Component", ylab = "Variance Explained")
+
+
+#From PCA variate representation of each PC, It’s evident that PC1 and PC2 add arround 50% of the to total variance
+
+plot(pca_result$sdev^2, xlab = "Component number", ylab = "Component variance", type = "l", main = "Scree diagram")
+
+# Loadings
+loadings <- pca_result$rotation
+print(loadings)
+
+# Data projection onto all PCs
+data_projection_all <- as.data.frame(pca_result$x)
+
+# Matrix scatterplot for pairs of principal components
+pairs(data_projection_all, col = "blue", pch = 19,
+      main = "Data Visualization using All PCs")
+
+# Visualize Eigenvalues
+fviz_eig(pca_result, addlabels = TRUE)
+
+# Visualize Variable Quality
+fviz_pca_var(pca_result, col.var = "cos2",
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"), 
+             repel = TRUE)
+
+# Visualize Individual Contributions
+fviz_pca_ind(pca_result,
+             geom.ind = "point", # Show points only
+             palette = c("#00AFBB", "#E7B800", "#FC4E07"),
+             addEllipses = TRUE, # Concentration ellipses
+             legend.title = "Groups"
+)
+
+# Biplot
+biplot(pca_result)
+
+# Variable correlation plot (Correlation Circle)
+fviz_pca_var(pca_result, col.var = "black")
+
+# Quality of representation of variables on dimensions 1 and 2
+fviz_cos2(pca_result, choice = "var", axes = 1:2)
+
+# Contributions of variables to principal components
+fviz_contrib(pca_result, choice = "var", axes = 1, top = 10)
+fviz_contrib(pca_result, choice = "var", axes = 2, top = 10)
+
+# Visualize individual contributions
+fviz_pca_ind(pca_result,
+             geom.ind = "point", # Show points only
+             palette = c("#00AFBB", "#E7B800", "#FC4E07"),
+             addEllipses = TRUE, # Concentration ellipses
+             legend.title = "Groups"
+)
+
+scatterplot3d(pca_result$x[,1:3], color = social_media$Instagram)
+
+
+```
+
+
+### Cluster Analysis
+
+```{r}
+social_media_cluster <- read_excel("social_media_cleaned.xlsx")
+data.scaled <- scale(x = social_media_cluster[, -1], center = TRUE, scale = TRUE)
+data <- data.scaled
+head(data)
+
+
+# Perform PCA
+pc <- prcomp(data.scaled)
+pc_first_three <- pc$x[, 1:3]
+# Perform K-means clustering on the first three principal components
+set.seed(123)  # For reproducibility
+k <- 3  # Number of clusters
+km_clusters <- kmeans(pc_first_three, centers = k)
+
+# Define colors for each cluster
+cluster_colors <- c("red", "blue", "green")
+
+# Plot the first three principal components with cluster assignments
+plot(pc_first_three, col = cluster_colors[km_clusters$cluster], 
+     main = "First Three Principal Components with Cluster Assignments", 
+     xlab = "", ylab = "", pch = 20)
+```
+<p>To reduce the dimensionality of the data, it first applies Principal Component Analysis (PCA) on scaled data.</p>
+  <p>The first three major components are then extracted. After that, it divides the data into three clusters using K-means clustering on these components. </p>
+  <p>Lastly, for analysis and visualization, it presents the first three principal components with color-coded cluster assignments.</p>
+  
+```{r}
+# Take a subset of 20 rows
+data_subset <- data[1:20, ]
+
+# Perform PCA
+pca_result <- prcomp(data_subset)
+
+# Extract the first three principal components
+pc_first_three <- pca_result$x[, 1:3]
+
+# Perform hierarchical clustering on the first three principal components
+hc <- hclust(dist(pc_first_three))
+
+# Plot the dendrogram
+plot(hc, main = "Dendrogram of Hierarchical Clustering (Subset of 20 Rows)",
+     xlab = "Sample Index", ylab = "Distance", sub = NULL)
+
+```
+
+<p>Plotting the first three principal components, a dendrogram illustrating the relationships between the samples based on their distances in the reduced-dimensional space, and hierarchical clustering on the plot are all displayed.</p>
+  
+```{r}
+# Visualize cluster and membership using first two Principal Components
+fviz_cluster(list(data = pc$x[, 1:2], cluster = km_clusters$cluster))
+```
+
+<p>By employing the first two Principal Components to plot data points in a two-dimensional space, this figure illustrates the effects of clustering. To display the grouping pattern found by the clustering algorithm, each point is colored in accordance with the cluster to which it has been assigned. It facilitates comprehension of how characteristics are used to group data items.</p>
+  
+```{r}
+# Non-hierarchical clustering (k-means)
+num_clusters <- 2  
+kmeans_model <- kmeans(data, centers = num_clusters)
+
+# Membership for each cluster
+table(kmeans_model$cluster)
+
+```
+<p>This is an example of splitting data into two clusters and clustering using the k-means algorithm. Cluster centers are initialized at random, and every data point is assigned to the closest cluster. The table function provides information on cluster membership and dispersion by counting the number of data points assigned to each cluster.</p>
+  
+  <b><p>This illustrates the process of splitting data into two clusters via the k-means clustering method. Every data point is assigned to the closest cluster when cluster centers are initialized at random. Cluster membership and distribution can be understood by using the table function, which counts the number of data points allocated to each cluster.</p></b>
+  
+```{r}
+# Visualize cluster and membership using first two Principal Components
+fviz_cluster(list(data = pc$x[, 1:2], cluster = kmeans_model$cluster))
+```
+<p>Using the first two principal components, the clusters and their memberships are seen in this graphic. After removing these elements from the data, k-means clustering is used to place each data point in a cluster. Lastly, it produces a graphic depicting how the data points are arranged in the first two primary components according to their similarities.</p>
+  
+  <b><p>What connection exists between the k-means algorithm's clustering findings and Principal Component Analysis (PCA)'s identification of the data's underlying structure?</p></b>
+  
+```{r}
+# Visualize cluster and membership using first two Principal Components for k-means
+pca_result <- prcomp(data, scale = TRUE)
+fviz_cluster(kmeans_model, data = pca_result$x[, 1:2], geom = "point", 
+             pointsize = 2, fill = "white", main = "K-means Clustering Result (PCA)")
+```
+<p>In this case, the first two Principal Components (PCs) derived from the Principal Component Analysis (PCA) of the numerical data are used to visualize the clusters and their memberships. It first calculates and scales the PCA result for the numerical data. Next, it plots the clusters that the k-means algorithm produced (kmeans_model) using the fviz_cluster function. With the size set to 2 and the color white, it depicts each data point as a point on the plot. The title of the plot is "Result of K-means Clustering (PCA)". This representation makes it easier to see how the PCA analysis revealed that the data points are organized into clusters based on their commonalities.</p>
+  
+  <p>How can one determine the ideal number of clusters for a particular dataset based on the link between the number of clusters (k) and the average silhouette width in k-means clustering?</p>
+  
+  
+```{r}
+# Calculate silhouette information for k-means clustering
+sil <- silhouette(kmeans_model$cluster, dist(data))
+
+# Visualize the silhouette plot for k-means clustering
+fviz_silhouette(sil, main = "Silhouette Plot for K-means Clustering")
+```
+
+<p>This graphic computes and displays the k-means clustering silhouette data. By comparing an object's similarity to its own cluster to that of other clusters, silhouette analysis assesses the quality of clustering. Better cluster separation is indicated by a wider silhouette, but negative values imply that points may have been allocated to the incorrect groups. This figure aids in figuring out how many clusters to use for k-means clustering and evaluating the effectiveness of clustering overall.</p>
+  
+```{r}
+# Create a data frame with cluster membership
+data_clustered <- data.frame(data, Cluster = kmeans_model$cluster)  # Ensure conversion to data frame
+
+# Scatter plot of data points colored by cluster membership
+plot(data_clustered$Whatsapp.Wechat, data_clustered$youtube, 
+     col = data_clustered$Cluster, pch = 17, 
+     xlab = "Whatsapp", ylab = "Youtube",  
+     main = "Scatter Plot of Clustering")
+legend("topright", legend = unique(data_clustered$Cluster), 
+       col = 1:max(data_clustered$Cluster), pch = 17, title = "Cluster")
+```
+<p>With each group represented by a different hue on the plot, this visualization of the data helps us see how the data points group together based on Whatsapp and Youtube.</p>
+  
+  
+  ### Factor Analysis
+  
+```{r}
+fa.parallel(social_media_numeric)
+```
+<p>Parallel analysis suggests that the number of factors = 0 and the number of components = 0</p>
+  
+```{r}
+fit.pc <- principal(social_media_numeric, nfactors=2, rotate="varimax")
+fit.pc
+```
+
+<p>
+  A strong correlation between the variable and the factor is shown by high absolute values, which are in proximity to 1. The amount by which the factors account for the variance of the variables is explained by #h2. The amount of variance not explained by the factors is indicated by #u2. Analysis of Principal Components Call: principal(nfactors = 2, rotate = "varimax," r = social_media_numeric) Pattern matrix standardizations based on correlation matrix.
+</p>
+  
+  <p>
+  SS loadings 2.27 1.80 Proportion Var 0.25 0.20 Cumulative Var 0.25 0.45 Proportion Explained 0.56 0.44 Cumulative Proportion 0.56 1.00</p>
+  
+  <p>Mean item complexity = 1.3 Test of the hypothesis that 2 components are sufficient.</p>
+  
+  <p>The root mean square of the residuals (RMSR) is 0.14 with the empirical chi square 29.01 with prob < 0.066
+
+</p>
+  
+```{r}
+round(fit.pc$values, 3)
+fit.pc$loadings
+fit.pc$communality
+# Rotated factor scores, Notice the columns ordering: RC1, RC2
+fit.pc
+fit.pc$scores
+fa.plot(fit.pc)
+
+fa.diagram(fit.pc) # Visualize the relationship
+vss(social_media_numeric)
+```
+
+<p>
+  VSS complexity 1 obtains a maximum of 0.61 with 6 factors, whereas VSS complexity 2 achieves a maximum of 0.78 with 7 factors. Very Simple Structure Call: vss(x = social_media_numeric)
+
+With one element, the Velicer MAP attains a minimum of 0.06. With one element, BIC reaches a minimum of -53.17. With five components, the sample size adjusted BIC reaches a minimum of 1.47.
+
+Statistics by number of factors
+
+</p>
+  
+```{r}
+# Computing Correlation Matrix
+corrm.social <- cor(social_media_numeric)
+corrm.social
+
+plot(corrm.social)
+social_pca <- prcomp(social_media_numeric, scale=TRUE)
+summary(social_pca)
+plot(social_pca)
+
+biplot(fit.pc)
+```
+
+
+<p>All things considered, these methods work well in tandem and can be applied to acquire a thorough comprehension of the information, reveal hidden patterns and structures, and produce insightful conclusions for further research and decision-making.</p>
+  
+  
+  #### Multiple Regression Analysis
+  
+```{r}
+
+social_media <- read_excel("social_media_cleaned.xlsx")
+social_media_numeric <- select_if(social_media, is.numeric)
+```
+
+#### Model Development
+```{r}
+model <- lm(social_media_numeric$Trouble_falling_asleep  ~ social_media_numeric$Instagram + social_media_numeric$LinkedIn + social_media_numeric$SnapChat + social_media_numeric$Twitter + social_media_numeric$`Whatsapp/Wechat` + social_media_numeric$youtube + social_media_numeric$OTT + social_media_numeric$Reddit,
+            data = social_media_numeric
+)
+summary(model)
+```
+<p> In this phase, I used the lm() method to fit a multiple regression model after loading the dataset. How did you feel during the entire week, according to the model? depending on several predictor factors, such as: Acceleration for OTT and Reddit on Instagram, LinkedIn, SnapChat, Twitter, Whatsapp, Youtube.</p>
+
+ </p> We examine the relevant t- and p-values for each coefficient to determine its statistical significance. A predictor variable may be statistically important in explaining the variability in sleep problems if it has a low p-value, which is often less than 0.05. Put more simply, it indicates that there is a good chance that the variable actually affects sleep problems.</p>
+  
+  #### Model Acceptance
+  
+```{r}
+coefficients(model)
+confint(model,level=0.95)
+fitted(model)
+```
+
+
+#### Residual Analysis
+```{r}
+residuals(model)
+anova(model)
+plot(model)
+
+avPlots(model)
+
+cutoff <- 17/((nrow(social_media)-length(model$coefficients)-2))
+plot(model, which=4, cook.levels=cutoff)
+influencePlot(model, id.method="identify", main="Influence Plot", sub="Circle size is proportial to Cook's Distance" )
+qqPlot(model, main="QQ Plot")
+```
+```{r}
+ggpairs(data=social_media_numeric, title="Social Media")
+
+ggplot(social_media_numeric, aes(x = fitted(model), y = residuals(model))) +
+  geom_point(alpha = 0.5) +
+  labs(title = "Residuals vs Fitted Values", x = "Fitted Values", y = "Residuals")
+
+```
+<p>One method for assessing a regression model's assumptions and suitability is the residual vs. fitted graphic. It is useful in determining whether the model accurately depicts the underlying relationships in the data or whether there are problems that require attention. Plotting a pattern of points around zero indicates that the model is inappropriate.</p>
+  
+  #### Prediction
+  <p>Based on the supplied predictors, the predict() method will produce anticipated values for the dependent variable (Trouble_falling_asleep).</p>
+```{r}
+new_data_pd <- data.frame(
+  character = "masinl",
+  Instagram = 3.50,
+  LinkedIn = 4.00,
+  SnapChat = 1.00,
+  Twitter = 5.00,
+  `Whatsapp/Wechat` = 1.00,
+  youtube = 2.50,
+  OTT = 14.50,
+  Reddit = 2.50,
+  Trouble_falling_asleep = 0,
+  Mood = 1,
+  Productivity = 0,
+  Tired_waking_up_in_morning = 3,
+  `How you felt the entire week?` = 3
+)
+
+predicted_pd <- predict(model, newdata = new_data_pd)
+predicted_pd
+summary(predicted_pd)
+```
+
+#### Model Accuracy
+
+```{r}
+rsquared <- summary(model)$r.squared
+cat("R-squared:", rsquared, "\n")
+adjusted_rsquared <- summary(model)$adj.r.squared
+cat("Adjusted R-squared:", adjusted_rsquared, "\n")
+predictions <- predict(model)
+rmse <- sqrt(mean((social_media$Instagram - predictions)^2))
+cat("RMSE:", rmse, "\n")
+
+```
+
+### Logistic Regression Analysis
+<p>To perform logistic regression analysis, we will use the glm() function.</p>
+  
+  * Load all necessary packages 
+* Load Data. we Used read_excel() function to read data from excel
+* Now we will use glm() function to fit a logistic regression model to the data.
+* Use the logistic regression model's summary() function to examine the coefficients, standard errors, z-values, and p-values.
+* To obtain the residual analysis, utilize the plot() function. To verify that the residuals are homoscedastic and normal, plot diagnostic plots such as residuals vs. fitted values, scale-location plot, and QQ plot of residuals.
+
+#### Model Development
+
+```{r}
+social_media <- read_excel("social_media_cleaned.xlsx")
+social_media_numeric <- select_if(social_media, is.numeric)
+```
+<p>Using Instagram, WhatsApp, OTT, and YouTube usage as variables, a logistic regression model is developed to calculate the likelihood of experiencing sleep problems.</p>
+```{r}
+Instagram_lab <- cut(social_media$Instagram, breaks = c(-Inf, 6, Inf), labels = c("Low Usage", "High Usage"))
+WhatsApp_lab <- cut(social_media$`Whatsapp/Wechat`, breaks = c(-Inf, 6, Inf), labels = c("Low Usage", "High Usage"))
+OTT_lab <- cut(social_media$OTT, breaks = c(-Inf, 6, Inf), labels = c("Low Usage", "High Usage"))
+YouTube_lab <- cut(social_media$youtube, breaks = c(-Inf, 6, Inf), labels = c("Low Usage", "High Usage"))
+
+combined_lab <- interaction(WhatsApp_lab, OTT_lab, YouTube_lab)
+
+tfs_table <- xtabs(~ Trouble_falling_asleep + combined_lab, data=social_media) 
+tfs_table
+
+logit_model <- glm(Trouble_falling_asleep ~  Instagram + `Whatsapp/Wechat` + OTT + youtube, data = social_media, 
+                   family = binomial)
+
+```
+
+<p>The code creates a binary result variable based on a threshold by reading a dataset and performing preprocessing on it..</p>
+  <p>It fits a logistic regression model using three predictor variables: <p>Total_Sessions, Conversion_Rate, and Avg_Session_Duration.</p>
+  Defining the model formula, fitting the model to the data, and producing a summary of the model's coefficients and statistical significance are all steps in this model development process.</p>
+
+#### Model Acceptance
+```{r}
+summary(logit_model)
+anova(logit_model)
+```
+
+<p>The coefficients show how each predictor variable is expected to affect the outcome variable's log-odds of falling into the positive class (1).</p>
+
+<p>For instance, the coefficient for Total Sessions is roughly 0.0002231, meaning that the log-odds of the outcome variable falling into the positive class rises by 0.0002231 units for every unit increase in Total Sessions.</p>
+
+<p>Conversion_Rate and Avg_Session_Duration have coefficients of 1.1609186 and -0.1110208, respectively..</p>
+
+#### Residual Analysis
+```{r}
+# Residual Analysis
+residuals(logit_model)
+plot(logit_model)
+```
+<p>The function logit_model computes the residuals of the fitted logistic regression model. It yields a vector with the residuals in it.</p>
+<p>For the logistic regression model (logit_model), the Plot() function creates diagnostic graphs. These plots include the quantile-quantile (Q-Q) plot, leverage plot, and residuals vs. fitted values. </p>
+
+#### Prediction
+```{r}
+predicted.social_media <- data.frame(probability.of.hd=logit_model$fitted.values,Instagram=Instagram_lab)
+predicted.social_media
+
+xtabs(~ probability.of.hd + Instagram_lab, data=predicted.social_media)
+logit_model2 <- glm(Trouble_falling_asleep ~ ., data=social_media, family="binomial")
+summary(logit_model2)
+
+predict_data <- predict(logit_model2,newdata=social_media,type="response" )
+predict_data
+social_media$Trouble_falling_asleep
+predict_dataF <- as.factor(ifelse(test=as.numeric(predict_data>0.5) == 0, yes="0", no="1"))
+roc(social_media$Trouble_falling_asleep,logit_model2$fitted.values,plot=TRUE)
+
+predicted_prob <- predict(logit_model2, type = "response")
+
+# Create prediction object
+predictions <- prediction(predicted_prob, predict_dataF)
+
+roc_curve <- roc(social_media$Trouble_falling_asleep, predicted_prob)
+
+# Plot ROC curve
+plot(roc_curve, main = "ROC Curve", col = "green", lwd = 2)
+abline(a = 0, b = 1, lty = 2, col = "orange")
+
+auc_value <- auc(roc_curve)
+cat("AUC:", auc_value, "\n")
+
+# Calculate performance measures
+perf <- performance(predictions, "tpr", "fpr")
+
+# Plot ROC curve
+plot(perf, main = "ROC Curve", col = "green", lwd = 2)
+abline(a = 0, b = 1, lty = 2, col = "orange")
+
+# Plot ROC curve
+plot(perf, main = "ROC Curve", col = "green", lwd = 2, 
+     xlab = "False Positive Rate", ylab = "True Positive Rate", 
+     xlim = c(0, 1), ylim = c(0, 1))
+abline(a = 0, b = 1, lty = 2, col = "orange")  # Diagonal line for reference
+
+# Add AUC value to the plot
+auc_value <- performance(predictions, "auc")@y.values[[1]]
+text(0.5, 0.5, paste("AUC =", round(auc_value, 2)), col = "#4daf4a", lwd=4)
+
+plot.roc(social_media$Trouble_falling_asleep , logit_model2$fitted.values, percent=TRUE, col="#4daf4a", lwd=4, print.auc=TRUE, add=TRUE, print.auc.y=40)
+
+legend("bottomright", legend=c("Simple", "Non Simple"), col=c("#377eb8", "#4daf4a"), lwd=4) 
+```
+
+<p>The logistic regression model uses a number of variables, such as user characteristics and social media usage, to assess the probability of having sleep problems. However, some coefficients are not specified because of data singularities. The model's tiny coefficients near 0 show that traits like "character19!\@s" and "characterpeace" have little bearing on the risk of having sleep problems.</p>
+<p>For instance, people who spend more time on Instagram and with usernames like "masinl," "peace," and "tl868" are projected to have a higher probability (0.75) of having sleep problems. On the other hand, people who use Twitter less, like "Patty" and "Bunny," are expected to have a reduced risk (0.235) of having difficulty falling asleep. It's crucial to remember that the model coefficients for several social networking sites, such as Instagram, LinkedIn, Snapchat, and others, are not defined, which implies that these factors might not have a big impact on predicting the risk of having difficulties sleeping.</p>
+  
+#### Model Accuracy
+```{r}
+predicted <- predict(logit_model, type = "response")
+predicted_binary <- ifelse(predicted > 0.5, 1, 0)
+confusion <- table(predicted_binary, social_media$Trouble_falling_asleep)
+accuracy <- sum(diag(confusion)) / sum(confusion)
+print(accuracy)
+```
+
+<p>The program reads a dataset from an Excel file, preprocesses it to produce binary outcome variables, fits a logistic regression model using three predictor variables to predict this outcome, performs residual analysis, computes the area under the curve (AUC) to assess model performance, makes predictions for a subset of the data, and evaluates metrics related to model accuracy, such as accuracy and precision.</p>
+  
+  
+### Discriminant Analysis
+
+```{r}
+mydata <- read_excel("social_media_cleaned.xlsx")
+mydata$Binary_tfs <- ifelse(mydata$Trouble_falling_asleep == "1", 1, 0)
+```
+
+#### Model Development
+
+```{r}
+lda_model <- lda(Binary_tfs ~ Instagram +	LinkedIn + SnapChat + Twitter +	`Whatsapp/Wechat` +	youtube +	OTT +	Reddit, data = mydata)
+```
+
+#### Model Acceptance
+
+```{r}
+summary(lda_model)
+print(lda_model)
+```
+
+#### Residual Analysis
+
+```{r}
+plot(lda_model)
+```
+
+#### Prediction
+```{r}
+lda_predictions <- predict(lda_model, newdata = mydata)
+lda_predictions
+
+predicted_classes <- lda_predictions$class
+predicted_classes
+lda_predictions$x
+
+predicted_probabilities <- as.data.frame(lda_predictions$posterior)
+predicted_probabilities
+pred <- prediction(predicted_probabilities[,2], mydata$Binary_tfs)
+```
+
+#### Model Accuracy
+
+```{r}
+roc.perf = performance(pred, measure = "tpr", x.measure = "fpr")
+auc.train <- performance(pred, measure = "auc")
+auc.train <- auc.train@y.values
+plot(roc.perf, main = "ROC Curve", col = "purple", lwd = 2)
+abline(a = 0, b = 1, lty = 2, col = "blue")
+text(x = .25, y = .65 ,paste("AUC = ", round(auc.train[[1]],3), sep = ""))
+```
+
+#### Model Insights
+
+
+#### Learnings and Takeaways
